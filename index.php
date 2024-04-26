@@ -8,14 +8,20 @@ session_start();
 if(isset($_POST["username"]) && isset($_POST["password"])) {
     // Validate login credentials
     if (checklogin_mysql($_POST["username"],$_POST["password"])) {
+        // Check if the user is a superuser
+        if(is_superuser($_POST["username"])) {
+            $_SESSION["superuser"] = $_POST["username"];
+            $_SESSION["username"] = $_POST["username"];
+        } else {
+            $_SESSION["username"] = $_POST["username"];
+        }
         // Set session variables
         $_SESSION["authenticated"] = TRUE;
-        $_SESSION["username"] = $_POST["username"];
         $_SESSION["browser"] = $_SERVER["HTTP_USER_AGENT"];
     } else {
         // Invalid credentials, destroy session and redirect
         session_destroy();
-        echo "<script>alert('Invalid username/password');window.location='form.php';</script>";
+        echo "<script>alert('Invalid username/password OR User is disabled');window.location='form.php';</script>";
         die();
     }
 }
@@ -51,6 +57,28 @@ if(isset($_SESSION["browser"]) && isset($_SERVER["HTTP_USER_AGENT"]) && $_SESSIO
   </script>
 </head>
 <body>
+<?php if (is_superuser($_SESSION["username"])): ?>
+  <div class="wrapper" style="max-width: 1000px; min-height: 600px;">
+    <div class="text-center mt-4 name">
+        Super User Home Page <br>
+        <p style="font-size: 1rem; padding: 10px;" id="digit-clock"></p>
+    </div>
+    <div class="text-center mt-4">
+      <a href="logout.php">Logout</a>
+    </div>
+    <hr>
+    <h2 class="text-center mt-4 name" style="font-size: 1.2rem; padding: 10px;">Welcome <?php echo isset($_SESSION['superuser']) ? htmlentities($_SESSION['superuser']) : "Guest"; ?> to Mini-Facebook! <br/></h2>
+    <div class="text-center mt-4 name" style="font-size: 1.2rem; padding: 10px;">
+        Your Profile:
+    </div>
+    <?php view_profile($_SESSION['superuser']) ?>
+    <hr>
+    <div class="text-center mt-4 name" style="font-size: 1.2rem; padding: 10px;">
+        Registered Users:
+    </div>
+    <?php registered_users() ?>
+  </div>
+  <?php else: ?>
   <div class="wrapper" style="max-width: 1000px; min-height: 600px;">
     <div class="text-center mt-4 name">
         Home Page <br>
@@ -75,6 +103,6 @@ if(isset($_SESSION["browser"]) && isset($_SERVER["HTTP_USER_AGENT"]) && $_SESSIO
     </div>
     <?php display_posts() ?>
   </div>
+<?php endif; ?>
 </body>
 </html>
-

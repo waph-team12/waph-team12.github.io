@@ -1,6 +1,6 @@
 <?php
 // Start the session
-session_set_cookie_params(15*60,"/","chamakri.waph.io",TRUE,TRUE);
+session_set_cookie_params(15*60,"/","waph-team12.minifacebook.com",TRUE,TRUE);
 session_start();
 
 // Check authentication status

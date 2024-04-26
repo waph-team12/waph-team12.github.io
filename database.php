@@ -20,7 +20,7 @@
 		$mail = sanitize_input($mail);
 		$phone = sanitize_input($phone);
 		global $mysqli;
-		$prepared_sql = "INSERT INTO users (username,password,fullname,mail,phone) VALUES (?, md5(?), ?, ?, ?);";
+		$prepared_sql = "INSERT INTO users (username,password,fullname,mail,phone,superuser,enable) VALUES (?, md5(?), ?, ?, ?,0,1);";
 		$stmt = $mysqli->prepare($prepared_sql);
 		$stmt->bind_param("sssss", $username, $password, $fullname, $mail, $phone);
 
@@ -33,7 +33,7 @@
 		$username = sanitize_input($username);
 		$password = sanitize_input($password);
     		global $mysqli;
-		$prepared_sql = "SELECT * FROM users WHERE username = ? AND password = md5(?)";
+		$prepared_sql = "SELECT * FROM users WHERE username = ? AND password = md5(?) AND enable = 1";
     		$stmt = $mysqli->prepare($prepared_sql);
     		$stmt->bind_param("ss", $username, $password);
     		$stmt->execute();
@@ -43,6 +43,65 @@
         		return TRUE;
     		return FALSE;
 	}
+
+	function is_superuser($username) {
+		$username = sanitize_input($username);
+    		global $mysqli;
+		$prepared_sql = "SELECT superuser FROM users WHERE username = ?";
+    		$stmt = $mysqli->prepare($prepared_sql);
+    		$stmt->bind_param("s", $username);
+    		$stmt->execute();
+		$stmt->bind_result($superuser);
+    		$stmt->fetch();
+		return $superuser === 1;
+	}
+
+function registered_users(){
+    global $mysqli;
+    $query = "SELECT username, fullname, enable  FROM users WHERE superuser=0";
+    $result = $mysqli->query($query);
+    $htmlContent = "";
+
+    if ($result && $result->num_rows > 0) {
+        // Loop through each row of the result set
+        while ($row = $result->fetch_assoc()) {
+            // Concatenate HTML content
+            $htmlContent .= "<link rel='stylesheet' href='styles.css'>";
+            $htmlContent .= "<div class='text-center mt-4 name' style='font-size: 1rem'>UserName:" . htmlentities($row["username"]) . " | Full Name:"  . htmlentities($row["fullname"]) . 
+                            "|<form method='post'><input type='hidden' name='username' value='" . $row["username"] . "'>";
+            
+            // Determine if the user is enabled or disabled and display the appropriate button
+            if ($row["enable"] == 1) {
+                $htmlContent .= "<input type='submit' name='disable' value='Disable' style='text-decoration: none; font-size: 0.8rem; color: #03A9F4; background-color: transparent; border: none; cursor: pointer;'>";
+            } else {
+                $htmlContent .= "<input type='submit' name='enable' value='Enable' style='text-decoration: none; font-size: 0.8rem; color: #03A9F4; background-color: transparent; border: none; cursor: pointer;'>";
+            }
+		
+            $htmlContent .= "</form></div>";
+        }
+        echo $htmlContent; // Output the HTML content
+    } else {
+        echo "<p class='text-center mt-4 name' style='font-size: 1rem'>No users found</p>";
+    }
+}
+
+function enableUser($username){
+    global $mysqli;
+    $query = "UPDATE users SET enable = 1 WHERE username = ?";
+    $stmt = $mysqli->prepare($query);
+    $stmt->bind_param("s", $username);
+    $stmt->execute();
+    $stmt->close();
+}
+
+function disableUser($username){
+    global $mysqli;
+    $query = "UPDATE users SET enable = 0 WHERE username = ?";
+    $stmt = $mysqli->prepare($query);
+    $stmt->bind_param("s", $username);
+    $stmt->execute();
+    $stmt->close();
+}
 
     function editprofile($username, $fullname, $mail, $phone) {
 		$username = sanitize_input($username);
@@ -147,15 +206,25 @@
 		return FALSE;
     }
 
-    // Check if the form is submitted for deletion
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['post_id'])) {
-    $post_id = $_POST['post_id'];
-    if (delete_post($post_id)) {
-        // Deletion successful, you can redirect or do any other action here
-        header("Location: {$_SERVER['PHP_SELF']}");
-        exit();
-    } else {
-        echo "Error deleting post";
+// Check if a form has been submitted
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    if (isset($_POST["enable"])) {
+        enableUser($_POST["username"]);
+        header("Location: " . $_SERVER['PHP_SELF']); 
+        exit;
+    } elseif (isset($_POST["disable"])) {
+        disableUser($_POST["username"]);
+        header("Location: " . $_SERVER['PHP_SELF']);
+        exit;
+    } elseif (isset($_POST['post_id'])) {
+        $post_id = $_POST['post_id'];
+        if (delete_post($post_id)) {
+            // Deletion successful, you can redirect or do any other action here
+            header("Location: {$_SERVER['PHP_SELF']}");
+            exit();
+        } else {
+            echo "Error deleting post";
+        }
     }
 }
 
@@ -241,7 +310,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['post_id'])) {
 		return FALSE;
   	}
 ?>
-<script>
+<script>	
 function deletePost(postID) {
     // Create a form and submit it to trigger the deletion
     var form = document.createElement('form');
